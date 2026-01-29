@@ -1,4 +1,4 @@
-# AGROPALM - Sistema de Desprendibles de Nómina
+# AGROPALMA - Sistema de Desprendibles de Nómina
 
 ## 📋 Instrucciones de Uso
 
@@ -76,3 +76,4 @@ location.reload();
 Creado por: AGROPALM  
 Versión: 1.0  
 Última actualización: 28/01/2026
+
