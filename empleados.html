@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empleados - AGROPALM M&P SAS Zomac</title>
+    <link rel="stylesheet" href="styless.css">
+    <style>
+        .employee-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            max-width: fit-content;
+        }
+
+        .back-button:hover {
+            background: #34495e;
+            transform: translateY(-2px);
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .form-container h2 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .form-container h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+
+        /* Botón búsqueda */
+        .btn-search-employee {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            background: #2c3e50;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-search-employee:hover {
+            background: #34495e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3);
+        }
+
+        /* Resultados */
+        .resultados-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .resultado-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            background: #f9f9f9;
+        }
+
+        .resultado-item:hover {
+            background: #f0f8f0;
+            border-color: #22c55e;
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+        }
+
+        .resultado-info {
+            flex: 1;
+        }
+
+        .resultado-periodo {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.05rem;
+            margin-bottom: 5px;
+        }
+
+        .resultado-fecha {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .btn-descargar {
+            padding: 10px 25px;
+            background: #27a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            margin-left: 15px;
+        }
+
+        .btn-descargar:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(39, 167, 69, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .employee-container {
+                padding: 15px;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .resultado-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .btn-descargar {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header-portal">
+        <div class="header-content">
+            <h1>AGROPALMA M&P SAS Zomac</h1>
+            <p>Descarga tus Desprendibles de Nómina Quincenal</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="employee-container">
+        <a href="index.html" class="back-button">← Volver al Portal</a>
+
+        <div class="form-container">
+            <h2>Descargar desprendible</h2>
+            
+            <form id="empleadoForm" onsubmit="handleEmpleadoSearchSubmit(event)">
+                <div class="form-group">
+                    <label for="cedula">Cédula</label>
+                    <input 
+                        type="text" 
+                        id="cedula" 
+                        placeholder=""
+                        maxlength="20"
+                    >
+                </div>
+
+                <button type="submit" class="btn-search-employee">
+                    Buscar
+                </button>
+            </form>
+
+            <!-- Resultados -->
+            <div id="searchResults" style="display: none; margin-top: 30px;">
+                <h3>Desprendibles Disponibles</h3>
+                <div id="resultadosList" class="resultados-list">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer-portal">
+        <div class="footer-line"></div>
+        <p>&copy; 2026 AGROPALMA. Todos los derechos reservados.</p>
+        <p>Sistema de Gestión de Nómina Quincenal</p>
+    </footer>
+
+    <!-- Librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
