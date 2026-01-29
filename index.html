@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Desprendibles - AGROPALMA M&P SAS Zomac</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #27a745;
+            --accent-color: #c9a961;
+            --tertiary-color: #5d4037;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #a7d8a3 0%, #c8e6c9 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Portal */
+        .header-portal {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1a2854 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-portal h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--accent-color);
+        }
+
+        .header-portal p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            font-weight: 300;
+            color: #e0e0e0;
+        }
+
+        /* Container Portal */
+        .container-portal {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .portal-content {
+            max-width: 1200px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .portal-content h2 {
+            font-size: 2.2rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .portal-subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 50px;
+            font-weight: 400;
+        }
+
+        /* Portal Grid */
+        .portal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        /* Portal Card */
+        .portal-card {
+            background: white;
+            border-radius: 16px;
+            padding: 50px 30px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .portal-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .admin-card {
+            border-top: 4px solid var(--secondary-color);
+        }
+
+        .employee-card {
+            border-top: 4px solid var(--primary-color);
+        }
+
+        /* Card Icon */
+        .card-icon {
+            font-size: 4rem;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .admin-icon {
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .employee-icon {
+            background: rgba(30, 58, 138, 0.1);
+        }
+
+        .portal-card:hover .card-icon {
+            transform: scale(1.15) rotate(5deg);
+        }
+
+        .portal-card h3 {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .portal-card p {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        /* Portal Buttons */
+        .btn-portal {
+            padding: 16px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            margin-top: auto;
+        }
+
+        .btn-admin {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #15a34a 100%);
+            color: white;
+            border: 2px solid var(--secondary-color);
+        }
+
+        .btn-admin:hover {
+            background: linear-gradient(135deg, #15a34a 0%, var(--secondary-color) 100%);
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-employee {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1e40af 100%);
+            color: white;
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn-employee:hover {
+            background: linear-gradient(135deg, #1e40af 0%, var(--primary-color) 100%);
+            box-shadow: 0 8px 20px rgba(30, 58, 138, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Footer Portal */
+        .footer-portal {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1a2854 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .footer-line {
+            height: 2px;
+            background: var(--accent-color);
+            margin-bottom: 20px;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .footer-portal p {
+            margin: 8px 0;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-portal h1 {
+                font-size: 2rem;
+            }
+
+            .header-portal p {
+                font-size: 1rem;
+            }
+
+            .portal-content h2 {
+                font-size: 1.6rem;
+            }
+
+            .portal-subtitle {
+                font-size: 0.95rem;
+            }
+
+            .portal-grid {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+
+            .portal-card {
+                padding: 35px 25px;
+            }
+
+            .card-icon {
+                font-size: 3rem;
+                width: 65px;
+                height: 65px;
+            }
+
+            .portal-card h3 {
+                font-size: 1.4rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-portal h1 {
+                font-size: 1.6rem;
+            }
+
+            .header-portal p {
+                font-size: 0.9rem;
+            }
+
+            .portal-content h2 {
+                font-size: 1.3rem;
+            }
+
+            .portal-subtitle {
+                font-size: 0.85rem;
+            }
+
+            .portal-card {
+                padding: 25px 20px;
+            }
+
+            .card-icon {
+                font-size: 2.5rem;
+                width: 55px;
+                height: 55px;
+            }
+
+            .portal-card h3 {
+                font-size: 1.1rem;
+            }
+
+            .portal-card p {
+                font-size: 0.9rem;
+            }
+
+            .btn-portal {
+                padding: 12px 30px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .logo h1 {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .logo p.tagline {
+            font-size: 1.1rem;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--border-color);
+            background: white;
+            padding: 0;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 16px 20px;
+            border: none;
+            background: transparent;
+            color: var(--neutral-dark);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-btn:hover {
+            background: var(--neutral-light);
+            color: var(--primary-color);
+        }
+
+        .nav-btn.active {
+            background: white;
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .nav-btn .icon {
+            font-size: 1.3rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Form Container */
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .form-container h2 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        /* Form */
+        .form {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+
+        .input-field {
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .input-field::placeholder {
+            color: #999;
+        }
+
+        .periodo-input {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        /* File Input */
+        .file-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            border: 2px dashed var(--accent-color);
+            border-radius: 8px;
+            background: rgba(212, 175, 55, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .file-label:hover {
+            background: rgba(212, 175, 55, 0.1);
+            border-color: var(--secondary-color);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-name {
+            margin-top: 10px;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .file-help {
+            margin-top: 8px;
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: 600;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .message-error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid var(--error-color);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Table */
+        .uploaded-files {
+            margin-top: 40px;
+            padding-top: 40px;
+            border-top: 2px solid var(--border-color);
+        }
+
+        .uploaded-files h3 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table thead {
+            background: var(--neutral-light);
+        }
+
+        .table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .table tbody tr:hover {
+            background: var(--neutral-light);
+        }
+
+        .text-center {
+            text-align: center;
+            color: #999;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        /* Footer */
+        .footer {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-top: auto;
+            border-radius: 12px 12px 0 0;
+            margin-left: -20px;
+            margin-right: -20px;
+            margin-bottom: -20px;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        .footer-version {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header {
+                padding: 30px 15px;
+            }
+
+            .logo h1 {
+                font-size: 2rem;
+            }
+
+            .form-container {
+                padding: 25px;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .nav-btn {
+                border-bottom: none;
+                border-right: 3px solid transparent;
+            }
+
+            .nav-btn.active {
+                border-right: 3px solid var(--primary-color);
+                border-bottom: none;
+            }
+
+            .periodo-input {
+                grid-template-columns: 1fr;
+            }
+
+            .form-container h2 {
+                font-size: 1.4rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo h1 {
+                font-size: 1.6rem;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .btn {
+                font-size: 0.95rem;
+                padding: 12px 20px;
+            }
+
+            .table {
+                font-size: 0.9rem;
+            }
+
+            .table th, .table td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header-portal">
+        <div class="header-content">
+            <h1>AGROPALMA M&P SAS Zomac</h1>
+            <p>Desprendibles de nómina quincenal</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container-portal">
+        <div class="portal-content">
+            <h2>Portal de Desprendibles</h2>
+            <p class="portal-subtitle">Gestione y descargue sus comprobantes de pago de manera rápida y segura</p>
+
+            <!-- Portal Cards -->
+            <div class="portal-grid">
+                <!-- Administración Card -->
+                <div class="portal-card admin-card">
+                    <div class="card-icon admin-icon">⚙️</div>
+                    <h3>Administración</h3>
+                    <p>Suba los archivos Excel con los desprendibles </p>
+                    <button class="btn-portal btn-admin" onclick="irAAdministracion()">Acceder administración</button>
+                </div>
+
+                <!-- Empleados Card -->
+                <div class="portal-card employee-card">
+                    <div class="card-icon employee-icon">👤</div>
+                    <h3>Empleados</h3>
+                    <p>Descargue su desprendible de nómina ingresando su número de cédula</p>
+                    <button class="btn-portal btn-employee" onclick="irAEmpleados()">Acceder empleados</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer-portal">
+        <div class="footer-line"></div>
+        <p>&copy; 2026 AGROPALMA. Todos los derechos reservados.</p>
+        <p>Sistema de Gestión de Nómina Quincenal</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        function irAAdministracion() {
+            // Limpiar la bandera de volver del admin para que se pida contraseña
+            sessionStorage.removeItem('adminAutenticado');
+            sessionStorage.removeItem('vieneDelAdmin');
+            window.location.href = 'administracion.html';
+        }
+
+        function irAEmpleados() {
+            window.location.href = 'empleados.html';
+        }
+    </script>
+</body>
+</html>
