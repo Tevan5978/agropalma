@@ -1,15 +1,7 @@
 // Sistema de Base de Datos con IndexedDB
-let subiendoArchivo = false;
 let desprendiblesData = {};
 let archivoCargado = null;
-async function handleEmpresaSubmit(e) {
-    e.preventDefault();
 
-    if (subiendoArchivo) {
-        console.warn('⛔ Envío duplicado bloqueado');
-        return;
-    }
-    subiendoArchivo = true;
 // Datos de empleados base
 const empleadosData = {
     '1234567890': {
@@ -1231,6 +1223,7 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
 
 
 
