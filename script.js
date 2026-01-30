@@ -408,7 +408,7 @@ async function handleEmpresaSubmit(e) {
     }
 
     if (!cedulaEmpleado) {
-        const mensaje = '✗ Por favor ingresa la cédula del empleado.';
+        const mensaje = '✗ Por favor ingresa la cédula del colaborador.';
         if (uploadError) {
             uploadError.textContent = mensaje;
             uploadError.style.display = 'block';
@@ -1236,6 +1236,7 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
 
 
 
