@@ -1,6 +1,7 @@
 // Sistema de Base de Datos con IndexedDB
 let desprendiblesData = {};
 let archivoCargado = null;
+let yaMostroMensaje = false;
 
 // Datos de empleados base
 const empleadosData = {
@@ -1235,6 +1236,7 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
 
 
 
