@@ -8,7 +8,6 @@ async function handleEmpresaSubmit(e) {
     if (subiendoArchivo) {
         console.warn('⛔ Envío duplicado bloqueado');
         return;
-        subiendoArchivo = false;
     }
     subiendoArchivo = true;
 // Datos de empleados base
