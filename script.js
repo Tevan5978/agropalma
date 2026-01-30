@@ -485,18 +485,30 @@ async function handleEmpresaSubmit(e) {
             archivo: desprendible.archivo
         });
 
-        // Guardar en IndexedDB
-        await bd.agregar(desprendible);
+// Guardar en IndexedDB
+await bd.agregar(desprendible);
 
-        const tamaño = (desprendible.archivoSize / 1024).toFixed(2);
-        if (uploadSuccess) {
-            uploadSuccess.innerHTML = `<strong>✓ ¡Desprendible guardado!</strong><br>${desprendible.nombre} (${cedulaEmpleado})<br><em>${periodoTexto}</em><br><small>Tamaño: ${tamaño} KB</small>`;
-            uploadSuccess.style.display = 'block';
-        } else {
-            alert(`✅ Desprendible guardado\n${desprendible.nombre}\n${periodoTexto}\nTamaño: ${tamaño} KB`);
-        }
+// EVITA MENSAJE DUPLICADO
+if (yaMostroMensaje) return;
+yaMostroMensaje = true;
 
-        console.log('✅ Desprendible guardado exitosamente');
+const tamaño = (desprendible.archivoSize / 1024).toFixed(2);
+
+if (uploadSuccess) {
+    uploadSuccess.innerHTML = `
+        <strong>✓ ¡Desprendible guardado!</strong><br>
+        ${desprendible.nombre} (${cedulaEmpleado})<br>
+        <em>${periodoTexto}</em><br>
+        <small>Tamaño: ${tamaño} KB</small>
+    `;
+    uploadSuccess.style.display = 'block';
+} else {
+    alert(
+        `✅ Desprendible guardado\n${desprendible.nombre}\n${periodoTexto}\nTamaño: ${tamaño} KB`
+    );
+}
+
+console.log('✅ Desprendible guardado exitosamente');
 
         // Actualizar tabla
         actualizarTablaArchivos(desprendible);
@@ -1223,6 +1235,7 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
 
 
 
