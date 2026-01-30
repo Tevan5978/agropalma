@@ -386,7 +386,7 @@ async function handleEmpresaSubmit(e) {
     const mesPago = document.getElementById('mesPago')?.value;
     const quincena = document.getElementById('quincena')?.value;
     const periodoPago = document.getElementById('periodoPago')?.value;
-    const fileInput = document.getElementById('fileUpload') || document.getElementById('archivoExcel');
+    const fileInput = document.getElementById('fileUpload');
     
     const uploadSuccess = document.getElementById('uploadSuccess');
     const uploadError = document.getElementById('uploadError');
@@ -1223,4 +1223,5 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
 
