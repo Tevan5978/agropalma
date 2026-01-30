@@ -195,12 +195,6 @@ function inicializarApp() {
         empresaForm.addEventListener('submit', handleEmpresaSubmit);
     }
 
-    // Configurar input de archivo
-    const archivoExcel = document.getElementById('archivoExcel');
-    if (archivoExcel) {
-        archivoExcel.addEventListener('change', handleFileSelect);
-    }
-
     const fileUpload = document.getElementById('fileUpload');
     if (fileUpload) {
         fileUpload.addEventListener('change', handleFileChange);
@@ -1229,3 +1223,4 @@ window.descargarDesdeModal = descargarDesdeModal;
 window.eliminarDesdeModal = eliminarDesdeModal;
 window.exportarJSON = exportarJSON;
 window.exportarCSV = exportarCSV;
+
