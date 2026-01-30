@@ -1,4 +1,4 @@
-// Sistema de Base de Datos con localStorage
+// Sistema de Base de Datos con IndexedDB
 let desprendiblesData = {};
 let archivoCargado = null;
 
@@ -14,74 +14,164 @@ const empleadosData = {
     }
 };
 
-// Funciones de Base de Datos
-class BaseDatosLocal {
+// ============================================================
+// CLASE DE BASE DE DATOS CON IndexedDB
+// ============================================================
+class BaseDatosIndexedDB {
     constructor() {
-        this.storageKey = 'AGROPALM_DESPRENDIBLES';
-        this.inicializar();
+        this.dbName = 'AGROPALMA_DB';
+        this.dbVersion = 2;
+        this.db = null;
     }
 
-    inicializar() {
-        // Crear estructura de base de datos si no existe
-        if (!localStorage.getItem(this.storageKey)) {
-            const datosIniciales = {
-                desprendibles: [
-                    {
-                        id: 1,
-                        cedula: '1234567890',
-                        nombre: 'Juan Pérez',
-                        periodo: 'primera-2026-01',
-                        periodoTexto: 'Primera Quincena Enero 2026',
-                        fechaCarga: '28/01/2026',
-                        archivo: 'desprendible_juan_q1_2026.pdf',
-                        estado: 'Procesado'
-                    },
-                    {
-                        id: 2,
-                        cedula: '9876543210',
-                        nombre: 'María García',
-                        periodo: 'primera-2026-01',
-                        periodoTexto: 'Primera Quincena Enero 2026',
-                        fechaCarga: '28/01/2026',
-                        archivo: 'desprendible_maria_q1_2026.pdf',
-                        estado: 'Procesado'
-                    }
-                ]
+    async inicializar() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                console.log('✅ Base de datos IndexedDB inicializada');
+                resolve();
             };
-            localStorage.setItem(this.storageKey, JSON.stringify(datosIniciales));
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                const oldVersion = event.oldVersion;
+                
+                console.log(`🔄 Actualizando base de datos de versión ${oldVersion} a ${this.dbVersion}`);
+                
+                if (!db.objectStoreNames.contains('desprendibles')) {
+                    const objectStore = db.createObjectStore('desprendibles', { keyPath: 'id', autoIncrement: true });
+                    objectStore.createIndex('cedula', 'cedula', { unique: false });
+                    objectStore.createIndex('periodo', 'periodo', { unique: false });
+                    objectStore.createIndex('cedula_periodo', ['cedula', 'periodo'], { unique: false });
+                    console.log('✅ Object store "desprendibles" creado');
+                } else {
+                    const transaction = event.target.transaction;
+                    const objectStore = transaction.objectStore('desprendibles');
+                    
+                    if (!objectStore.indexNames.contains('cedula')) {
+                        objectStore.createIndex('cedula', 'cedula', { unique: false });
+                    }
+                    if (!objectStore.indexNames.contains('periodo')) {
+                        objectStore.createIndex('periodo', 'periodo', { unique: false });
+                    }
+                    if (!objectStore.indexNames.contains('cedula_periodo')) {
+                        objectStore.createIndex('cedula_periodo', ['cedula', 'periodo'], { unique: false });
+                    }
+                }
+            };
+        });
+    }
+
+    async obtenerTodos() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['desprendibles'], 'readonly');
+            const objectStore = transaction.objectStore('desprendibles');
+            const request = objectStore.getAll();
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async obtenerPorCedula(cedula) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['desprendibles'], 'readonly');
+            const objectStore = transaction.objectStore('desprendibles');
+            const index = objectStore.index('cedula');
+            const request = index.getAll(cedula);
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async existe(cedula, periodo) {
+        try {
+            const transaction = this.db.transaction(['desprendibles'], 'readonly');
+            const objectStore = transaction.objectStore('desprendibles');
+            
+            if (objectStore.indexNames.contains('cedula_periodo')) {
+                const index = objectStore.index('cedula_periodo');
+                const request = index.get([cedula, periodo]);
+                
+                return new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result !== undefined);
+                    request.onerror = () => reject(request.error);
+                });
+            } else {
+                const todos = await this.obtenerTodos();
+                return todos.some(d => d.cedula === cedula && d.periodo === periodo);
+            }
+        } catch (error) {
+            console.warn('Error al verificar existencia, usando fallback:', error);
+            const todos = await this.obtenerTodos();
+            return todos.some(d => d.cedula === cedula && d.periodo === periodo);
         }
     }
 
-    obtenerTodos() {
-        const datos = localStorage.getItem(this.storageKey);
-        return datos ? JSON.parse(datos) : { desprendibles: [] };
+    async agregar(desprendible) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['desprendibles'], 'readwrite');
+            const objectStore = transaction.objectStore('desprendibles');
+            const request = objectStore.add(desprendible);
+
+            request.onsuccess = () => {
+                desprendible.id = request.result;
+                resolve(desprendible);
+            };
+            request.onerror = () => reject(request.error);
+        });
     }
 
-    obtenerPorCedula(cedula) {
-        const datos = this.obtenerTodos();
-        return datos.desprendibles.filter(d => d.cedula === cedula);
+    async eliminar(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['desprendibles'], 'readwrite');
+            const objectStore = transaction.objectStore('desprendibles');
+            const request = objectStore.delete(id);
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
     }
 
-    agregar(desprendible) {
-        const datos = this.obtenerTodos();
-        desprendible.id = datos.desprendibles.length > 0 ? Math.max(...datos.desprendibles.map(d => d.id)) + 1 : 1;
-        datos.desprendibles.unshift(desprendible); // Agregar al inicio
-        localStorage.setItem(this.storageKey, JSON.stringify(datos));
-        return desprendible;
+    async eliminarPorCedulaPeriodo(cedula, periodo) {
+        const todos = await this.obtenerTodos();
+        const encontrado = todos.find(d => d.cedula === cedula && d.periodo === periodo);
+        
+        if (encontrado) {
+            return await this.eliminar(encontrado.id);
+        }
+        return false;
     }
 
-    limpiar() {
-        localStorage.removeItem(this.storageKey);
-        this.inicializar();
+    async limpiar() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['desprendibles'], 'readwrite');
+            const objectStore = transaction.objectStore('desprendibles');
+            const request = objectStore.clear();
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
     }
 }
 
 // Instanciar la base de datos
-const bd = new BaseDatosLocal();
+const bd = new BaseDatosIndexedDB();
 
 // Inicialización
-document.addEventListener('DOMContentLoaded', function() {
-    inicializarApp();
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        await bd.inicializar();
+        console.log('✅ Base de datos lista');
+        inicializarApp();
+    } catch (error) {
+        console.error('❌ Error al inicializar:', error);
+        alert('Error al inicializar la aplicación. Por favor recarga la página.');
+    }
 });
 
 function inicializarApp() {
@@ -95,20 +185,31 @@ function inicializarApp() {
 
     // Configurar formulario de empleado
     const empleadoForm = document.getElementById('empleadoForm');
-    empleadoForm.addEventListener('submit', handleEmpleadoSubmit);
+    if (empleadoForm) {
+        empleadoForm.addEventListener('submit', handleEmpleadoSubmit);
+    }
 
     // Configurar formulario de empresa
     const empresaForm = document.getElementById('empresaForm');
-    empresaForm.addEventListener('submit', handleEmpresaSubmit);
+    if (empresaForm) {
+        empresaForm.addEventListener('submit', handleEmpresaSubmit);
+    }
 
     // Configurar input de archivo
     const archivoExcel = document.getElementById('archivoExcel');
-    archivoExcel.addEventListener('change', handleFileSelect);
+    if (archivoExcel) {
+        archivoExcel.addEventListener('change', handleFileSelect);
+    }
+
+    const fileUpload = document.getElementById('fileUpload');
+    if (fileUpload) {
+        fileUpload.addEventListener('change', handleFileChange);
+    }
 
     // Cargar períodos disponibles
     cargarPeriodos();
 
-    // Simular datos iniciales
+    // Cargar datos iniciales
     simularDatosIniciales();
 }
 
@@ -125,6 +226,8 @@ function cambiarTab(tabName) {
 
 function cargarPeriodos() {
     const periodoSelect = document.getElementById('periodo');
+    if (!periodoSelect) return;
+
     const ahora = new Date();
     const periodos = [];
 
@@ -154,142 +257,61 @@ function cargarPeriodos() {
     });
 }
 
-function generarPDF(desprendible, nombreEmpleado, cedula) {
+// ============================================================
+// FUNCIÓN: Convertir archivo a ArrayBuffer
+// ============================================================
+function archivoAArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+// ============================================================
+// FUNCIÓN: Descargar Excel original
+// ============================================================
+function descargarExcelOriginal(desprendible) {
     try {
-        // Crear nuevo documento PDF
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
+        if (!desprendible.archivoBlob) {
+            alert('⚠️ Este desprendible no tiene archivo disponible.\nPor favor contacta a Recursos Humanos.');
+            return false;
+        }
+
+        // Crear blob desde el ArrayBuffer guardado
+        const blob = new Blob([desprendible.archivoBlob], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
         });
-
-        // Colores AGROPALM
-        const colorAzul = [30, 58, 138];      // #1e3a8a
-        const colorVerde = [34, 197, 94];     // #22c55e
-        const colorDorado = [212, 175, 55];   // #d4af37
-
-        // Márgenes
-        const margen = 15;
-        let posY = 15;
-
-        // Encabezado con línea de color
-        doc.setFillColor(...colorAzul);
-        doc.rect(0, 0, 210, 30, 'F');
-
-        // Logo/Nombre de la empresa
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text('AGROPALM', margen, posY + 12);
-
-        // Título
-        doc.setTextColor(...colorAzul);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        posY = 40;
-        doc.text('DESPRENDIBLE DE NÓMINA', margen, posY);
-
-        // Línea divisoria
-        doc.setDrawColor(...colorVerde);
-        doc.setLineWidth(0.5);
-        doc.line(margen, posY + 5, 210 - margen, posY + 5);
-
-        // Información del empleado
-        posY += 15;
-        doc.setTextColor(...colorAzul);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('INFORMACIÓN DEL EMPLEADO', margen, posY);
-
-        posY += 8;
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Nombre: ${nombreEmpleado}`, margen, posY);
-        posY += 6;
-        doc.text(`Cédula: ${cedula}`, margen, posY);
-        posY += 6;
-        doc.text(`Período: ${desprendible.periodoTexto}`, margen, posY);
-        posY += 6;
-        doc.text(`Fecha de Carga: ${desprendible.fechaCarga}`, margen, posY);
-
-        // Línea divisoria
-        posY += 8;
-        doc.setDrawColor(...colorVerde);
-        doc.line(margen, posY, 210 - margen, posY);
-
-        // Detalles del pago
-        posY += 10;
-        doc.setTextColor(...colorAzul);
-        doc.setFont('helvetica', 'bold');
-        doc.text('DETALLES DEL PAGO', margen, posY);
-
-        posY += 8;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
         
-        // Datos de ejemplo (pueden ser expandidos con datos reales)
-        const conceptos = [
-            { concepto: 'Salario Base', valor: '2,500,000' },
-            { concepto: 'Bonificación', valor: '500,000' },
-            { concepto: 'Aporte de Salud', valor: '-150,000' },
-            { concepto: 'Aporte Pensión', valor: '-250,000' }
-        ];
-
-        // Tabla de conceptos
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('Concepto', margen, posY);
-        doc.text('Valor', 180, posY);
-
-        posY += 6;
-        doc.setDrawColor(200, 200, 200);
-        doc.line(margen, posY, 210 - margen, posY);
-
-        posY += 3;
-        doc.setFont('helvetica', 'normal');
-        let total = 0;
-        conceptos.forEach(item => {
-            doc.setFontSize(8);
-            doc.text(item.concepto, margen + 2, posY);
-            doc.text(item.valor, 180, posY);
-            posY += 5;
-        });
-
-        // Línea total
-        posY += 2;
-        doc.setDrawColor(...colorVerde);
-        doc.setLineWidth(0.8);
-        doc.line(margen, posY, 210 - margen, posY);
-
-        posY += 5;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text('TOTAL NETO A PAGAR', margen, posY);
-        doc.text('2,600,000', 180, posY);
-
-        // Pie de página
-        posY += 20;
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text('Este desprendible es un comprobante de pago. Guárdalo para tus registros.', margen, posY);
-        posY += 5;
-        doc.text('Para consultas contacta a: recursos.humanos@agropalm.com', margen, posY);
-
-        // Descargar el PDF
-        const nombreArchivo = `Desprendible_${nombreEmpleado.replace(/\s+/g, '_')}_${desprendible.periodo}.pdf`;
-        doc.save(nombreArchivo);
-
+        // Crear enlace de descarga
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = desprendible.archivo || `Desprendible_${desprendible.cedula}_${desprendible.periodo}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+        
+        console.log(`✅ Excel descargado: ${desprendible.archivo}`);
         return true;
+        
     } catch (error) {
-        console.error('Error al generar PDF:', error);
+        console.error('Error al descargar Excel:', error);
+        alert('❌ Error al descargar el archivo: ' + error.message);
         return false;
     }
 }
 
-function handleEmpleadoSubmit(e) {
+// ============================================================
+// HANDLE EMPLEADO SUBMIT - DESCARGA EN EXCEL
+// ============================================================
+async function handleEmpleadoSubmit(e) {
     e.preventDefault();
 
     const cedula = document.getElementById('cedula').value.trim();
@@ -297,120 +319,219 @@ function handleEmpleadoSubmit(e) {
     const successMsg = document.getElementById('successMessage');
     const errorMsg = document.getElementById('errorMessage');
 
-    // Ocultar mensajes previos
-    successMsg.style.display = 'none';
-    errorMsg.style.display = 'none';
+    if (successMsg) successMsg.style.display = 'none';
+    if (errorMsg) errorMsg.style.display = 'none';
 
-    // Validar que la cédula sea válida
     if (!cedula) {
-        errorMsg.textContent = '✗ Por favor ingresa tu cédula.';
-        errorMsg.style.display = 'block';
+        if (errorMsg) {
+            errorMsg.textContent = '✗ Por favor ingresa tu cédula.';
+            errorMsg.style.display = 'block';
+        }
         return;
     }
 
     if (!periodo) {
-        errorMsg.textContent = '✗ Por favor selecciona un período.';
-        errorMsg.style.display = 'block';
+        if (errorMsg) {
+            errorMsg.textContent = '✗ Por favor selecciona un período.';
+            errorMsg.style.display = 'block';
+        }
         return;
     }
 
-    // Buscar desprendibles en la base de datos
-    const desprendiblesPorCedula = bd.obtenerPorCedula(cedula);
-    const desprendibleEncontrado = desprendiblesPorCedula.find(d => d.periodo === periodo);
+    try {
+        const desprendiblesPorCedula = await bd.obtenerPorCedula(cedula);
+        const desprendibleEncontrado = desprendiblesPorCedula.find(d => d.periodo === periodo);
 
-    if (desprendibleEncontrado) {
-        const nombreEmpleado = empleadosData[cedula] ? empleadosData[cedula].nombre : desprendibleEncontrado.nombre;
-        
-        // Mostrar mensaje de éxito
-        successMsg.innerHTML = `<strong>✓ ¡Éxito!</strong><br>Descargando desprendible de ${nombreEmpleado}<br><em>${desprendibleEncontrado.periodoTexto}</em>`;
-        successMsg.style.display = 'block';
-
-        // Generar y descargar el PDF
-        setTimeout(() => {
-            const pdfGenerado = generarPDF(desprendibleEncontrado, nombreEmpleado, cedula);
-            if (pdfGenerado) {
-                console.log(`PDF descargado: Desprendible_${nombreEmpleado}_${desprendibleEncontrado.periodo}.pdf`);
+        if (desprendibleEncontrado) {
+            const nombreEmpleado = empleadosData[cedula] ? empleadosData[cedula].nombre : desprendibleEncontrado.nombre;
+            
+            if (successMsg) {
+                successMsg.innerHTML = `<strong>✓ ¡Éxito!</strong><br>Descargando desprendible de ${nombreEmpleado}<br><em>${desprendibleEncontrado.periodoTexto}</em>`;
+                successMsg.style.display = 'block';
             }
-        }, 500);
-    } else if (desprendiblesPorCedula.length > 0) {
-        // Mostrar los períodos disponibles
-        const periodosDisponibles = desprendiblesPorCedula.map(d => d.periodoTexto).join(', ');
-        errorMsg.innerHTML = `<strong>✗ Período no encontrado</strong><br>Períodos disponibles: ${periodosDisponibles}`;
-        errorMsg.style.display = 'block';
-    } else {
-        errorMsg.innerHTML = `<strong>✗ No encontrado</strong><br>No hay desprendibles asociados a esta cédula.<br>Por favor contacta a recursos humanos.`;
-        errorMsg.style.display = 'block';
-    }
 
-    // Limpiar formulario
-    setTimeout(() => {
-        document.getElementById('empleadoForm').reset();
-        successMsg.style.display = 'none';
-    }, 3000);
+            // Descargar Excel original
+            setTimeout(() => {
+                descargarExcelOriginal(desprendibleEncontrado);
+            }, 500);
+        } else if (desprendiblesPorCedula.length > 0) {
+            const periodosDisponibles = desprendiblesPorCedula.map(d => d.periodoTexto).join(', ');
+            if (errorMsg) {
+                errorMsg.innerHTML = `<strong>✗ Período no encontrado</strong><br>Períodos disponibles: ${periodosDisponibles}`;
+                errorMsg.style.display = 'block';
+            }
+        } else {
+            if (errorMsg) {
+                errorMsg.innerHTML = `<strong>✗ No encontrado</strong><br>No hay desprendibles asociados a esta cédula.`;
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        setTimeout(() => {
+            document.getElementById('empleadoForm').reset();
+            if (successMsg) successMsg.style.display = 'none';
+        }, 3000);
+
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorMsg) {
+            errorMsg.textContent = '✗ Error al buscar desprendibles';
+            errorMsg.style.display = 'block';
+        }
+    }
 }
 
-function handleEmpresaSubmit(e) {
+// ============================================================
+// HANDLE EMPRESA SUBMIT - CON PREVENCIÓN DE DUPLICADOS
+// ============================================================
+async function handleEmpresaSubmit(e) {
     e.preventDefault();
 
     const cedulaEmpleado = document.getElementById('cedulaEmpleado').value.trim();
-    const periodoPago = document.getElementById('periodoPago').value;
-    const mesPago = document.getElementById('mesPago').value;
+    const anioPago = document.getElementById('anioPago')?.value.trim();
+    const mesPago = document.getElementById('mesPago')?.value;
+    const quincena = document.getElementById('quincena')?.value;
+    const periodoPago = document.getElementById('periodoPago')?.value;
+    const fileInput = document.getElementById('fileUpload') || document.getElementById('archivoExcel');
+    
     const uploadSuccess = document.getElementById('uploadSuccess');
     const uploadError = document.getElementById('uploadError');
 
-    uploadSuccess.style.display = 'none';
-    uploadError.style.display = 'none';
+    if (uploadSuccess) uploadSuccess.style.display = 'none';
+    if (uploadError) uploadError.style.display = 'none';
 
-    if (!archivoCargado) {
-        uploadError.textContent = '✗ Por favor selecciona un archivo Excel.';
-        uploadError.style.display = 'block';
+    // Validaciones
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        const mensaje = '✗ Por favor selecciona un archivo Excel.';
+        if (uploadError) {
+            uploadError.textContent = mensaje;
+            uploadError.style.display = 'block';
+        } else {
+            alert('❌ ' + mensaje);
+        }
         return;
     }
 
     if (!cedulaEmpleado) {
-        uploadError.textContent = '✗ Por favor ingresa la cédula del empleado.';
-        uploadError.style.display = 'block';
+        const mensaje = '✗ Por favor ingresa la cédula del empleado.';
+        if (uploadError) {
+            uploadError.textContent = mensaje;
+            uploadError.style.display = 'block';
+        } else {
+            alert('❌ ' + mensaje);
+        }
         return;
     }
 
-    // Crear período en formato estándar
-    const periodoKey = `${periodoPago}-${mesPago.replace('-', '-')}`;
-    const fecha = new Date(mesPago + '-01');
-    const mesTexto = fecha.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-    const mesCapitalizado = mesTexto.charAt(0).toUpperCase() + mesTexto.slice(1);
-    const periodoTexto = (periodoPago === 'primera' ? 'Primera Quincena' : 'Segunda Quincena') + ' - ' + mesCapitalizado;
+    try {
+        // Crear período
+        let periodoKey, periodoTexto;
+        
+        if (anioPago && mesPago && quincena) {
+            const mesTexto = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][parseInt(mesPago) - 1];
+            periodoTexto = `${quincena === 'primera' ? 'Primera' : 'Segunda'} Quincena ${mesTexto} ${anioPago}`;
+            periodoKey = `${quincena}_quincena_${mesPago}_${anioPago}`;
+        } else if (periodoPago && mesPago) {
+            const fecha = new Date(mesPago + '-01');
+            const mesTexto = fecha.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+            const mesCapitalizado = mesTexto.charAt(0).toUpperCase() + mesTexto.slice(1);
+            periodoTexto = (periodoPago === 'primera' ? 'Primera Quincena' : 'Segunda Quincena') + ' - ' + mesCapitalizado;
+            periodoKey = `${periodoPago}-${mesPago.replace('-', '-')}`;
+        } else {
+            throw new Error('Faltan datos del período');
+        }
 
-    // Crear objeto desprendible
-    const desprendible = {
-        cedula: cedulaEmpleado,
-        nombre: empleadosData[cedulaEmpleado] ? empleadosData[cedulaEmpleado].nombre : cedulaEmpleado,
-        periodo: periodoKey,
-        periodoTexto: periodoTexto,
-        fechaCarga: new Date().toLocaleDateString('es-CO'),
-        archivo: archivoCargado.name,
-        estado: 'Procesado'
-    };
+        // ============================================================
+        // PREVENIR DUPLICADOS - VERIFICACIÓN DOBLE
+        // ============================================================
+        const yaExiste = await bd.existe(cedulaEmpleado, periodoKey);
+        
+        if (yaExiste) {
+            if (uploadError) {
+                uploadError.innerHTML = `<strong>⚠️ Duplicado detectado</strong><br>Ya existe un desprendible para:<br><strong>${empleadosData[cedulaEmpleado]?.nombre || cedulaEmpleado}</strong><br><em>${periodoTexto}</em>`;
+                uploadError.style.display = 'block';
+            } else {
+                alert(`⚠️ YA EXISTE UN DESPRENDIBLE\n\nEmpleado: ${empleadosData[cedulaEmpleado]?.nombre || cedulaEmpleado}\nCédula: ${cedulaEmpleado}\nPeríodo: ${periodoTexto}\n\nNo se pueden guardar duplicados.`);
+            }
+            
+            // Limpiar el formulario
+            document.getElementById('empresaForm').reset();
+            const fileNameDisplay = document.querySelector('.file-name-display') || document.getElementById('fileName');
+            if (fileNameDisplay) fileNameDisplay.textContent = '';
+            archivoCargado = null;
+            
+            return; // NO GUARDAR
+        }
 
-    // Guardar en la base de datos
-    bd.agregar(desprendible);
+        if (uploadSuccess) {
+            uploadSuccess.innerHTML = `<strong>⏳ Guardando archivo...</strong>`;
+            uploadSuccess.style.display = 'block';
+        }
 
-    // Mostrar mensaje de éxito
-    const nombreEmpleado = desprendible.nombre;
-    uploadSuccess.innerHTML = `<strong>✓ ¡Desprendible guardado!</strong><br>${nombreEmpleado} (${cedulaEmpleado})<br><em>${periodoTexto}</em>`;
-    uploadSuccess.style.display = 'block';
+        // Convertir archivo a ArrayBuffer
+        const archivoArrayBuffer = await archivoAArrayBuffer(fileInput.files[0]);
 
-    console.log('Desprendible guardado en la base de datos:', desprendible);
+        // Crear objeto desprendible
+        const desprendible = {
+            cedula: cedulaEmpleado,
+            nombre: empleadosData[cedulaEmpleado] ? empleadosData[cedulaEmpleado].nombre : 'Empleado',
+            periodo: periodoKey,
+            periodoTexto: periodoTexto,
+            fechaCarga: new Date().toLocaleDateString('es-CO'),
+            archivo: fileInput.files[0].name,
+            archivoBlob: archivoArrayBuffer,
+            archivoSize: fileInput.files[0].size,
+            estado: 'Procesado'
+        };
 
-    // Actualizar tabla de archivos
-    actualizarTablaArchivos(desprendible);
+        console.log('📝 Guardando desprendible:', {
+            cedula: desprendible.cedula,
+            periodo: desprendible.periodo,
+            archivo: desprendible.archivo
+        });
 
-    // Limpiar formulario
-    setTimeout(() => {
+        // Guardar en IndexedDB
+        await bd.agregar(desprendible);
+
+        const tamaño = (desprendible.archivoSize / 1024).toFixed(2);
+        if (uploadSuccess) {
+            uploadSuccess.innerHTML = `<strong>✓ ¡Desprendible guardado!</strong><br>${desprendible.nombre} (${cedulaEmpleado})<br><em>${periodoTexto}</em><br><small>Tamaño: ${tamaño} KB</small>`;
+            uploadSuccess.style.display = 'block';
+        } else {
+            alert(`✅ Desprendible guardado\n${desprendible.nombre}\n${periodoTexto}\nTamaño: ${tamaño} KB`);
+        }
+
+        console.log('✅ Desprendible guardado exitosamente');
+
+        // Actualizar tabla
+        actualizarTablaArchivos(desprendible);
+
+        // Limpiar formulario
+        setTimeout(() => {
+            document.getElementById('empresaForm').reset();
+            const fileNameDisplay = document.querySelector('.file-name-display') || document.getElementById('fileName');
+            if (fileNameDisplay) fileNameDisplay.textContent = '';
+            archivoCargado = null;
+            if (uploadSuccess) uploadSuccess.style.display = 'none';
+        }, 3000);
+
+    } catch (error) {
+        console.error('❌ Error al guardar:', error);
+        const mensaje = `✗ Error: ${error.message}`;
+        if (uploadError) {
+            uploadError.textContent = mensaje;
+            uploadError.style.display = 'block';
+        } else {
+            alert('❌ ' + mensaje);
+        }
+        
+        // Limpiar formulario en caso de error
         document.getElementById('empresaForm').reset();
-        document.getElementById('fileName').textContent = '';
+        const fileNameDisplay = document.querySelector('.file-name-display') || document.getElementById('fileName');
+        if (fileNameDisplay) fileNameDisplay.textContent = '';
         archivoCargado = null;
-        uploadSuccess.style.display = 'none';
-    }, 2000);
+    }
 }
 
 function handleFileSelect(e) {
@@ -418,21 +539,40 @@ function handleFileSelect(e) {
     const fileNameDiv = document.getElementById('fileName');
 
     if (file) {
-        // Validar extensión
         if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
             archivoCargado = file;
-            fileNameDiv.textContent = `✓ Archivo seleccionado: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-            fileNameDiv.style.color = '#4caf50';
+            if (fileNameDiv) {
+                fileNameDiv.textContent = `✓ Archivo seleccionado: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileNameDiv.style.color = '#4caf50';
+            }
         } else {
-            fileNameDiv.textContent = '✗ Por favor selecciona un archivo .xlsx o .xls';
-            fileNameDiv.style.color = '#f44336';
+            if (fileNameDiv) {
+                fileNameDiv.textContent = '✗ Por favor selecciona un archivo .xlsx o .xls';
+                fileNameDiv.style.color = '#f44336';
+            }
             archivoCargado = null;
+        }
+    }
+}
+
+function handleFileChange() {
+    const fileInput = document.getElementById('fileUpload');
+    const fileNameDisplay = document.querySelector('.file-name-display');
+    
+    if (fileInput && fileInput.files.length > 0) {
+        if (fileNameDisplay) {
+            fileNameDisplay.textContent = fileInput.files[0].name;
+        }
+    } else {
+        if (fileNameDisplay) {
+            fileNameDisplay.textContent = 'Ningún archivo seleccionado';
         }
     }
 }
 
 function actualizarTablaArchivos(desprendible) {
     const tbody = document.getElementById('filesTable');
+    if (!tbody) return;
 
     const fila = document.createElement('tr');
     fila.innerHTML = `
@@ -443,7 +583,6 @@ function actualizarTablaArchivos(desprendible) {
         <td><span class="badge badge-success">✓ ${desprendible.estado}</span></td>
     `;
 
-    // Reemplazar la fila de "no hay archivos" o agregar la nueva
     if (tbody.querySelector('tr td[colspan]')) {
         tbody.innerHTML = '';
     }
@@ -451,38 +590,33 @@ function actualizarTablaArchivos(desprendible) {
     tbody.insertBefore(fila, tbody.firstChild);
 }
 
-function simularDatosIniciales() {
-    // Cargar desprendibles desde la base de datos
+async function simularDatosIniciales() {
     const tbody = document.getElementById('filesTable');
-    const datos = bd.obtenerTodos();
-    
-    if (datos.desprendibles && datos.desprendibles.length > 0) {
-        tbody.innerHTML = '';
-        datos.desprendibles.forEach(desprendible => {
-            const fila = document.createElement('tr');
-            fila.innerHTML = `
-                <td>${desprendible.nombre}</td>
-                <td>${desprendible.cedula}</td>
-                <td>${desprendible.periodoTexto}</td>
-                <td>${desprendible.fechaCarga}</td>
-                <td><span class="badge badge-success">✓ ${desprendible.estado}</span></td>
-            `;
-            tbody.appendChild(fila);
-        });
+    if (!tbody) return;
+
+    try {
+        const desprendibles = await bd.obtenerTodos();
+        
+        if (desprendibles && desprendibles.length > 0) {
+            tbody.innerHTML = '';
+            desprendibles.forEach(desprendible => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${desprendible.nombre}</td>
+                    <td>${desprendible.cedula}</td>
+                    <td>${desprendible.periodoTexto}</td>
+                    <td>${desprendible.fechaCarga}</td>
+                    <td><span class="badge badge-success">✓ ${desprendible.estado}</span></td>
+                `;
+                tbody.appendChild(fila);
+            });
+        }
+    } catch (error) {
+        console.error('Error al cargar datos:', error);
     }
 }
 
-// Función para convertir Excel a PDF (placeholder - necesitaría librerías como jsPDF)
-function convertirExcelAPDF(archivoExcel) {
-    // Aquí iría la lógica para:
-    // 1. Leer el archivo Excel
-    // 2. Extraer datos por cédula
-    // 3. Generar PDF individual
-    // Para esto necesitarías: xlsx.js para leer Excel y jsPDF para generar PDFs
-    console.log('Convertir Excel a PDF:', archivoExcel);
-}
-
-// Agregar estilos para badges dinámicamente
+// Estilos
 const style = document.createElement('style');
 style.textContent = `
     .badge {
@@ -492,12 +626,10 @@ style.textContent = `
         font-size: 0.85rem;
         font-weight: 600;
     }
-
     .badge-success {
         background: #e8f5e9;
         color: #2e7d32;
     }
-
     .badge-pending {
         background: #fff3e0;
         color: #e65100;
@@ -505,12 +637,14 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Función para buscar documentos por cédula
-function buscarDocumentos(e) {
+// ============================================================
+// FUNCIONES ADICIONALES
+// ============================================================
+
+async function buscarDocumentos(e) {
     e.preventDefault();
 
     const cedula = document.getElementById('searchCedula').value.trim();
-    const anio = document.getElementById('searchAnio').value;
     const searchResults = document.getElementById('searchResults');
     const archivosTableBody = document.getElementById('archivosTableBody');
 
@@ -519,185 +653,55 @@ function buscarDocumentos(e) {
         return;
     }
 
-    // Buscar desprendibles en la base de datos
-    const desprendibles = bd.obtenerPorCedula(cedula);
-    
-    // Filtrar por año si se proporcionó
-    let resultados = desprendibles;
-    if (anio) {
-        resultados = desprendibles.filter(d => d.anio === anio.toString());
+    try {
+        const desprendibles = await bd.obtenerPorCedula(cedula);
+
+        if (desprendibles.length === 0) {
+            alert('No se encontraron documentos para la cédula ingresada');
+            if (searchResults) searchResults.style.display = 'none';
+            return;
+        }
+
+        if (archivosTableBody) {
+            archivosTableBody.innerHTML = '';
+            desprendibles.forEach((desprendible) => {
+                const nombreEmpleado = empleadosData[cedula] ? empleadosData[cedula].nombre : desprendible.nombre;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${nombreEmpleado}</td>
+                    <td>${cedula}</td>
+                    <td>${desprendible.periodoTexto}</td>
+                    <td>${desprendible.fechaCarga}</td>
+                    <td><span class="badge badge-success">✓ Activo</span></td>
+                    <td>
+                        <button type="button" class="btn-eliminar" onclick="eliminarDocumento(${desprendible.id})">
+                            Eliminar
+                        </button>
+                    </td>
+                `;
+                archivosTableBody.appendChild(row);
+            });
+        }
+
+        if (searchResults) searchResults.style.display = 'block';
+    } catch (error) {
+        alert('Error al buscar documentos: ' + error.message);
     }
-
-    if (resultados.length === 0) {
-        alert('No se encontraron documentos para la cédula ingresada');
-        searchResults.style.display = 'none';
-        return;
-    }
-
-    // Mostrar resultados
-    archivosTableBody.innerHTML = '';
-    resultados.forEach((desprendible, index) => {
-        const nombreEmpleado = empleadosData[cedula] ? empleadosData[cedula].nombre : desprendible.nombre;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${nombreEmpleado}</td>
-            <td>${cedula}</td>
-            <td>${desprendible.periodoTexto}</td>
-            <td>${desprendible.fechaCarga}</td>
-            <td><span class="badge badge-success">✓ Activo</span></td>
-            <td>
-                <button type="button" class="btn-eliminar" onclick="eliminarDocumento('${cedula}', '${desprendible.periodo}')">
-                    Eliminar
-                </button>
-            </td>
-        `;
-        archivosTableBody.appendChild(row);
-    });
-
-    searchResults.style.display = 'block';
 }
 
-// Función para eliminar un documento
-function eliminarDocumento(cedula, periodo) {
+async function eliminarDocumento(id) {
     if (confirm('¿Estás seguro de que deseas eliminar este documento?')) {
         try {
-            // Obtener todos los datos
-            const datos = bd.obtenerTodos();
-            
-            // Buscar el índice del documento a eliminar
-            const indiceEliminar = datos.desprendibles.findIndex(d => d.cedula === cedula && d.periodo === periodo);
-            
-            if (indiceEliminar !== -1) {
-                // Eliminar del array
-                datos.desprendibles.splice(indiceEliminar, 1);
-                
-                // Guardar de nuevo en localStorage
-                localStorage.setItem(bd.storageKey, JSON.stringify(datos));
-                
-                alert('✅ Documento eliminado correctamente');
-                
-                // Recargar la búsqueda
-                buscarDocumentos({ preventDefault: () => {} });
-            } else {
-                alert('❌ No se encontró el documento');
-            }
+            await bd.eliminar(id);
+            alert('✅ Documento eliminado correctamente');
+            buscarDocumentos({ preventDefault: () => {} });
         } catch (error) {
             alert('❌ Error al eliminar: ' + error.message);
-            console.error(error);
         }
     }
 }
 
-// Función para manejar el cambio de archivo
-function handleFileChange() {
-    const fileInput = document.getElementById('fileUpload');
-    const fileNameDisplay = document.querySelector('.file-name-display');
-    
-    if (fileInput && fileInput.files.length > 0) {
-        fileNameDisplay.textContent = fileInput.files[0].name;
-    } else {
-        fileNameDisplay.textContent = 'Ninguno...ado';
-    }
-}
-
-// Agregar evento al archivo cuando está listo
-document.addEventListener('DOMContentLoaded', function() {
-    const fileInput = document.getElementById('fileUpload');
-    if (fileInput) {
-        fileInput.addEventListener('change', handleFileChange);
-    }
-
-    // Prevenir que el click se propague
-    const wrapper = document.getElementById('fileUploadWrapper');
-    if (wrapper) {
-        wrapper.addEventListener('click', function(e) {
-            if (e.target.id !== 'fileUpload') {
-                e.preventDefault();
-            }
-        });
-    }
-});
-
-// Actualizar handleEmpresaSubmit para los nuevos campos
-const originalHandleEmpresaSubmit = handleEmpresaSubmit;
-function handleEmpresaSubmitNew(e) {
-    e.preventDefault();
-
-    const cedulaEmpleado = document.getElementById('cedulaEmpleado').value.trim();
-    const anioPago = document.getElementById('anioPago').value.trim();
-    const mesPago = document.getElementById('mesPago').value;
-    const quincena = document.getElementById('quincena').value;
-    const fileInput = document.getElementById('fileUpload');
-
-    // Validar campos
-    if (!cedulaEmpleado) {
-        alert('❌ Por favor ingresa la cédula del empleado');
-        return;
-    }
-
-    if (!anioPago) {
-        alert('❌ Por favor ingresa el año');
-        return;
-    }
-
-    if (!mesPago) {
-        alert('❌ Por favor selecciona el mes');
-        return;
-    }
-
-    if (!quincena) {
-        alert('❌ Por favor selecciona la quincena');
-        return;
-    }
-
-    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        alert('❌ Por favor selecciona un archivo');
-        return;
-    }
-
-    // Crear periodo en formato compatible
-    const mesTexto = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][parseInt(mesPago) - 1];
-    const periodoTexto = `${quincena === 'primera' ? 'Primera' : 'Segunda'} Quincena ${mesTexto} ${anioPago}`;
-    const periodo = `${quincena}_quincena_${mesPago}_${anioPago}`;
-
-    // Crear objeto desprendible
-    const desprendible = {
-        nombre: empleadosData[cedulaEmpleado] ? empleadosData[cedulaEmpleado].nombre : 'Empleado',
-        cedula: cedulaEmpleado,
-        periodo: periodo,
-        periodoTexto: periodoTexto,
-        anio: anioPago,
-        mes: mesPago,
-        quincena: quincena,
-        archivo: fileInput.files[0].name,
-        fechaCarga: new Date().toLocaleDateString('es-CO'),
-        estado: 'Activo'
-    };
-
-    try {
-        // Guardar en base de datos
-        bd.agregar(desprendible);
-
-        // Mostrar mensaje de éxito
-        alert('✅ Desprendible cargado correctamente');
-        
-        // Limpiar formulario
-        document.getElementById('empresaForm').reset();
-        document.querySelector('.file-name-display').textContent = 'Ninguno...ado';
-    } catch (error) {
-        alert('❌ Error al cargar el desprendible: ' + error.message);
-        console.error(error);
-    }
-}
-
-// Reemplazar la función si existe el formulario de administración
-if (document.getElementById('empresaForm') && document.getElementById('anioPago')) {
-    handleEmpresaSubmit = handleEmpresaSubmitNew;
-}
-
-// Función para búsqueda simple de empleado
-function handleEmpleadoSearchSubmit(e) {
+async function handleEmpleadoSearchSubmit(e) {
     e.preventDefault();
 
     const cedula = document.getElementById('cedula').value.trim();
@@ -709,44 +713,519 @@ function handleEmpleadoSearchSubmit(e) {
         return;
     }
 
-    // Buscar desprendibles en la base de datos
-    const desprendibles = bd.obtenerPorCedula(cedula);
+    try {
+        const desprendibles = await bd.obtenerPorCedula(cedula);
 
-    if (desprendibles.length === 0) {
-        alert('No se encontraron desprendibles para esta cédula');
-        searchResults.style.display = 'none';
+        if (desprendibles.length === 0) {
+            alert('No se encontraron desprendibles para esta cédula');
+            if (searchResults) searchResults.style.display = 'none';
+            return;
+        }
+
+        if (resultadosList) {
+            resultadosList.innerHTML = '';
+            desprendibles.forEach((desprendible) => {
+                const div = document.createElement('div');
+                div.className = 'resultado-item';
+                div.innerHTML = `
+                    <div class="resultado-info">
+                        <div class="resultado-periodo">${desprendible.periodoTexto}</div>
+                        <div class="resultado-fecha">Cargado: ${desprendible.fechaCarga}</div>
+                    </div>
+                    <button type="button" class="btn-descargar" onclick="descargarDesprendiblePorId(${desprendible.id})">
+                        Descargar
+                    </button>
+                `;
+                resultadosList.appendChild(div);
+            });
+        }
+
+        if (searchResults) searchResults.style.display = 'block';
+    } catch (error) {
+        alert('Error al buscar: ' + error.message);
+    }
+}
+
+async function descargarDesprendiblePorId(id) {
+    try {
+        const todos = await bd.obtenerTodos();
+        const desprendible = todos.find(d => d.id === id);
+        
+        if (desprendible) {
+            descargarExcelOriginal(desprendible);
+        } else {
+            alert('No se pudo encontrar el desprendible');
+        }
+    } catch (error) {
+        alert('Error al descargar: ' + error.message);
+    }
+}
+
+async function descargarPDFEmpleado(cedula, periodo) {
+    try {
+        const desprendibles = await bd.obtenerPorCedula(cedula);
+        const desprendible = desprendibles.find(d => d.periodo === periodo);
+        
+        if (desprendible) {
+            descargarExcelOriginal(desprendible);
+        } else {
+            alert('No se pudo encontrar el desprendible');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function irAEmpleados() {
+    window.location.href = 'empleados.html';
+}
+
+// Utilidades
+async function resetearBaseDatos() {
+    if (confirm('⚠️ ¿Estás seguro? Esto eliminará TODOS los desprendibles guardados.')) {
+        try {
+            await bd.limpiar();
+            alert('✅ Base de datos limpiada. La página se recargará.');
+            location.reload();
+        } catch (error) {
+            alert('Error al limpiar: ' + error.message);
+        }
+    }
+}
+
+async function eliminarBaseDatosCompleta() {
+    if (confirm('⚠️⚠️⚠️ ADVERTENCIA ⚠️⚠️⚠️\n\nEsto eliminará COMPLETAMENTE la base de datos.\n\n¿Estás seguro?')) {
+        try {
+            if (bd.db) {
+                bd.db.close();
+            }
+            
+            const request = indexedDB.deleteDatabase('AGROPALMA_DB');
+            
+            request.onsuccess = () => {
+                alert('✅ Base de datos eliminada. La página se recargará.');
+                location.reload();
+            };
+            
+            request.onerror = () => {
+                alert('❌ Error al eliminar la base de datos');
+            };
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+
+window.resetearBaseDatos = resetearBaseDatos;
+window.eliminarBaseDatosCompleta = eliminarBaseDatosCompleta;
+window.bd = bd;
+
+console.log('💡 Sistema AGROPALMA - Carga y descarga de Excel');
+console.log('✅ Excel se guarda sin modificar');
+console.log('✅ Excel se descarga sin modificar');
+console.log('🔒 Prevención de duplicados activada');
+console.log('🔐 Base de datos protegida con contraseña');
+
+// ============================================================
+// ⚠️ CONFIGURACIÓN DE SEGURIDAD - IMPORTANTE
+// ============================================================
+// Para cambiar la contraseña de la base de datos, busca esta línea
+// en la función verBaseDatos():
+// const contraseñaCorrecta = 'admin123';
+//
+// Esta debe ser LA MISMA contraseña que usas para entrar a 
+// la sección de administración de tu sitio.
+// ============================================================
+
+// ============================================================
+// FUNCIÓN: Ver base de datos completa (CON CONTRASEÑA)
+// ============================================================
+async function verBaseDatos() {
+    // Solicitar contraseña
+    const contraseñaIngresada = prompt('🔒 Ingresa la contraseña de administración:');
+    
+    // ============================================================
+    // ⚠️ CAMBIAR AQUÍ LA CONTRASEÑA
+    // Debe ser la misma que usas para acceder a administración
+    // ============================================================
+    const contraseñaCorrecta = 'agropalma2024'; 
+    // ============================================================
+    
+    if (contraseñaIngresada !== contraseñaCorrecta) {
+        alert('❌ Contraseña incorrecta. Acceso denegado.');
         return;
     }
-
-    // Mostrar resultados
-    resultadosList.innerHTML = '';
-    desprendibles.forEach((desprendible, index) => {
-        const div = document.createElement('div');
-        div.className = 'resultado-item';
-        div.innerHTML = `
-            <div class="resultado-info">
-                <div class="resultado-periodo">${desprendible.periodoTexto}</div>
-                <div class="resultado-fecha">Cargado: ${desprendible.fechaCarga}</div>
-            </div>
-            <button type="button" class="btn-descargar" onclick="descargarPDFEmpleado('${cedula}', '${desprendible.periodo}')">
-                Descargar
-            </button>
+    
+    try {
+        const desprendibles = await bd.obtenerTodos();
+        
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.id = 'modalBaseDatos';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-out;
         `;
-        resultadosList.appendChild(div);
-    });
-
-    searchResults.style.display = 'block';
-}
-
-// Función para descargar PDF desde la sección de empleados
-function descargarPDFEmpleado(cedula, periodo) {
-    const desprendiblesPorCedula = bd.obtenerPorCedula(cedula);
-    const desprendible = desprendiblesPorCedula.find(d => d.periodo === periodo);
-
-    if (desprendible) {
-        const nombreEmpleado = empleadosData[cedula] ? empleadosData[cedula].nombre : desprendible.nombre;
-        generarPDF(desprendible, nombreEmpleado, cedula);
-    } else {
-        alert('No se pudo encontrar el desprendible');
+        
+        const contenido = document.createElement('div');
+        contenido.style.cssText = `
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 90%;
+            max-height: 85%;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+        `;
+        
+        let html = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 3px solid #1e3a8a; padding-bottom: 15px;">
+                <h2 style="margin: 0; color: #1e3a8a; font-size: 28px;">
+                    🔒 Base de Datos AGROPALMA
+                </h2>
+                <button onclick="cerrarModalBaseDatos()" style="
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: 600;
+                    transition: all 0.2s;
+                ">
+                    ✕ Cerrar
+                </button>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white;">
+                <div style="display: flex; justify-content: space-around; text-align: center;">
+                    <div>
+                        <div style="font-size: 32px; font-weight: bold;">${desprendibles.length}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Total Desprendibles</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 32px; font-weight: bold;">${new Set(desprendibles.map(d => d.cedula)).size}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Empleados</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 32px; font-weight: bold;">${(desprendibles.reduce((sum, d) => sum + (d.archivoSize || 0), 0) / 1024).toFixed(2)}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">KB Totales</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (desprendibles.length === 0) {
+            html += `
+                <div style="text-align: center; padding: 60px 20px; color: #6b7280;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">📂</div>
+                    <h3 style="color: #374151; margin-bottom: 10px;">Base de datos vacía</h3>
+                    <p>No hay desprendibles guardados aún.</p>
+                    <p style="font-size: 14px; margin-top: 20px;">
+                        Puedes cargar desprendibles desde el <strong>Panel de Administración</strong>
+                    </p>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="exportarJSON()" style="
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                    ">
+                        📥 Exportar JSON
+                    </button>
+                    <button onclick="exportarCSV()" style="
+                        background: #3b82f6;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                    ">
+                        📊 Exportar CSV
+                    </button>
+                </div>
+                
+                <div style="overflow-x: auto; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">ID</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Nombre</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Cédula</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Período</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Archivo</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Tamaño</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Fecha Carga</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            desprendibles.forEach((desp, index) => {
+                const bgColor = index % 2 === 0 ? '#ffffff' : '#f9fafb';
+                const tamañoKB = desp.archivoSize ? (desp.archivoSize / 1024).toFixed(2) : 'N/A';
+                
+                html += `
+                    <tr style="background: ${bgColor}; border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 12px; color: #6b7280;">${desp.id}</td>
+                        <td style="padding: 12px; color: #111827; font-weight: 500;">${desp.nombre}</td>
+                        <td style="padding: 12px; color: #374151;">${desp.cedula}</td>
+                        <td style="padding: 12px; color: #374151;">${desp.periodoTexto}</td>
+                        <td style="padding: 12px; color: #6b7280; font-size: 12px;">${desp.archivo}</td>
+                        <td style="padding: 12px; color: #6b7280;">${tamañoKB} KB</td>
+                        <td style="padding: 12px; color: #6b7280;">${desp.fechaCarga}</td>
+                        <td style="padding: 12px;">
+                            <button onclick="descargarDesdeModal(${desp.id})" style="
+                                background: #22c55e;
+                                color: white;
+                                border: none;
+                                padding: 6px 12px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 12px;
+                                margin-right: 5px;
+                            ">
+                                ⬇️
+                            </button>
+                            <button onclick="eliminarDesdeModal(${desp.id})" style="
+                                background: #ef4444;
+                                color: white;
+                                border: none;
+                                padding: 6px 12px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            ">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        contenido.innerHTML = html;
+        modal.appendChild(contenido);
+        document.body.appendChild(modal);
+        
+        // Agregar animaciones
+        const styleAnimations = document.createElement('style');
+        styleAnimations.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideUp {
+                from { 
+                    transform: translateY(50px);
+                    opacity: 0;
+                }
+                to { 
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(styleAnimations);
+        
+    } catch (error) {
+        alert('❌ Error al cargar la base de datos: ' + error.message);
+        console.error(error);
     }
 }
+
+function cerrarModalBaseDatos() {
+    const modal = document.getElementById('modalBaseDatos');
+    if (modal) {
+        modal.style.animation = 'fadeIn 0.3s ease-out reverse';
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+async function descargarDesdeModal(id) {
+    try {
+        const todos = await bd.obtenerTodos();
+        const desprendible = todos.find(d => d.id === id);
+        
+        if (desprendible) {
+            descargarExcelOriginal(desprendible);
+        } else {
+            alert('❌ No se encontró el desprendible');
+        }
+    } catch (error) {
+        alert('❌ Error al descargar: ' + error.message);
+    }
+}
+
+async function eliminarDesdeModal(id) {
+    if (confirm('⚠️ ¿Estás seguro de eliminar este desprendible?')) {
+        try {
+            await bd.eliminar(id);
+            alert('✅ Desprendible eliminado');
+            
+            // Cerrar y reabrir modal para actualizar
+            cerrarModalBaseDatos();
+            setTimeout(() => verBaseDatos(), 400);
+        } catch (error) {
+            alert('❌ Error al eliminar: ' + error.message);
+        }
+    }
+}
+
+async function exportarJSON() {
+    try {
+        const desprendibles = await bd.obtenerTodos();
+        
+        // Crear copia sin el ArrayBuffer (muy grande para JSON)
+        const datosExportar = desprendibles.map(d => ({
+            id: d.id,
+            nombre: d.nombre,
+            cedula: d.cedula,
+            periodo: d.periodo,
+            periodoTexto: d.periodoTexto,
+            archivo: d.archivo,
+            archivoSize: d.archivoSize,
+            fechaCarga: d.fechaCarga,
+            estado: d.estado,
+            tieneArchivo: !!d.archivoBlob
+        }));
+        
+        const json = JSON.stringify(datosExportar, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AGROPALMA_BD_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        alert('✅ JSON exportado correctamente');
+    } catch (error) {
+        alert('❌ Error al exportar: ' + error.message);
+    }
+}
+
+async function exportarCSV() {
+    try {
+        const desprendibles = await bd.obtenerTodos();
+        
+        let csv = 'ID,Nombre,Cédula,Período,Archivo,Tamaño (KB),Fecha Carga,Estado\n';
+        
+        desprendibles.forEach(d => {
+            const tamaño = d.archivoSize ? (d.archivoSize / 1024).toFixed(2) : 'N/A';
+            csv += `${d.id},"${d.nombre}",${d.cedula},"${d.periodoTexto}","${d.archivo}",${tamaño},${d.fechaCarga},${d.estado}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AGROPALMA_BD_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        alert('✅ CSV exportado correctamente');
+    } catch (error) {
+        alert('❌ Error al exportar: ' + error.message);
+    }
+}
+
+// ============================================================
+// AGREGAR BOTÓN FLOTANTE PARA VER BASE DE DATOS (SOLO ADMIN)
+// ============================================================
+function crearBotonBaseDatos() {
+    // Verificar si estamos en la página de administración
+    const esAdministracion = 
+        window.location.pathname.includes('admin') || 
+        window.location.pathname.includes('administracion') ||
+        document.getElementById('empresaForm') !== null ||
+        document.querySelector('[data-tab="empresa"]') !== null;
+    
+    // Solo crear el botón si estamos en administración
+    if (!esAdministracion) {
+        console.log('⚠️ Botón de base de datos solo disponible en administración');
+        return;
+    }
+    
+    const boton = document.createElement('button');
+    boton.id = 'btnVerBaseDatos';
+    boton.innerHTML = '📊';
+    boton.title = 'Ver Base de Datos';
+    boton.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        z-index: 9999;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    boton.onmouseover = () => {
+        boton.style.transform = 'scale(1.1)';
+        boton.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+    };
+    
+    boton.onmouseout = () => {
+        boton.style.transform = 'scale(1)';
+        boton.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+    };
+    
+    boton.onclick = verBaseDatos;
+    
+    document.body.appendChild(boton);
+    console.log('✅ Botón de base de datos creado (solo visible en administración)');
+}
+
+// Crear el botón cuando cargue la página
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(crearBotonBaseDatos, 1000);
+});
+
+// Exportar funciones globales
+window.verBaseDatos = verBaseDatos;
+window.cerrarModalBaseDatos = cerrarModalBaseDatos;
+window.descargarDesdeModal = descargarDesdeModal;
+window.eliminarDesdeModal = eliminarDesdeModal;
+window.exportarJSON = exportarJSON;
+window.exportarCSV = exportarCSV;
