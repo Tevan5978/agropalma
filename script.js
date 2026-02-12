@@ -162,6 +162,34 @@ class BaseDatosIndexedDB {
 
 // Instanciar la base de datos
 const bd = new BaseDatosIndexedDB();
+const DESPRENDIBLES_API_URL = '/api/desprendibles';
+
+async function guardarDesprendibleRemoto(desprendible) {
+    const payload = {
+        cedula: desprendible.cedula,
+        nombre: desprendible.nombre,
+        periodo: desprendible.periodo,
+        periodoTexto: desprendible.periodoTexto,
+        fechaCarga: desprendible.fechaCarga,
+        archivo: desprendible.archivo,
+        archivoSize: desprendible.archivoSize,
+        estado: desprendible.estado
+    };
+
+    try {
+        const respuesta = await fetch(DESPRENDIBLES_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!respuesta.ok) {
+            console.warn('⚠️ No se pudo guardar en la base de datos remota');
+        }
+    } catch (error) {
+        console.warn('⚠️ Error al conectar con la base de datos remota');
+    }
+}
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', async function() {
@@ -488,6 +516,7 @@ async function handleEmpresaSubmit(e) {
 
 // Guardar en IndexedDB
 await bd.agregar(desprendible);
+guardarDesprendibleRemoto(desprendible);
 
 // EVITA MENSAJE DUPLICADO
 if (yaMostroMensaje) return;

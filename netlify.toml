@@ -1,0 +1,6 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[context.production.plugins]]
+  package = "neon-buildhooks"

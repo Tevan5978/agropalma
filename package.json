@@ -1,0 +1,9 @@
+{
+  "name": "agropalma",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Sitio de Agropalma con funciones de Netlify",
+  "dependencies": {
+    "@netlify/neon": "^0.4.0"
+  }
+}
